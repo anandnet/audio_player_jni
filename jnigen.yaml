@@ -10,6 +10,6 @@ source_path:
   - 'android/app/src/main/kotlin'
 classes:
   - 'androidx.media3.common.MediaItem'
-  - 'jnigen_player.AudioPlayerJni'
+  - 'com.anandnet.audio_player_jni.AudioPlayerJni'
 
   
