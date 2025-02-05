@@ -3,6 +3,7 @@ import 'dart:async';
 abstract class AudioPlayerBase {
   Stream<PlayerState> get playerStateStream;
   Stream<PlayerError> get errorStream;
+  Stream<List<AudioSource>> get queueStream;
   bool get isPlaying;
   bool get isBuffering;
   bool get isCompleted;
@@ -17,7 +18,7 @@ abstract class AudioPlayerBase {
   bool get shuffleEnabled;
   int? get audioSessionId;
 
-  set skipSilenceEnabled(bool value) {}
+  set skipSilenceModeEnabled(bool value) {}
 
   set shuffleEnabled(bool value) {}
 
@@ -30,6 +31,8 @@ abstract class AudioPlayerBase {
   void addAudioSource(AudioSource source, {int? index}) {}
 
   void addAudioSourceList(List<AudioSource> sources, {int? index}) {}
+
+  void moveAudioSource(int currentIndex, int newIndex) {}
 
   void removeAudioSource(int index) {}
 
@@ -62,6 +65,8 @@ class PlayerState {
   final Duration bufferedPosition;
   final bool isPlaying;
   final int currentIndex;
+  final RepeatMode repeatMode;
+  final bool shuffleModeEnabled;
   final AudioProcessingState? audioProcessingState;
 
   PlayerState(
@@ -70,7 +75,9 @@ class PlayerState {
       this.bufferedPosition = Duration.zero,
       this.isPlaying = false,
       this.currentIndex = 0,
-      this.audioProcessingState});
+      this.audioProcessingState,
+      this.repeatMode = RepeatMode.off,
+      this.shuffleModeEnabled = false});
 
   PlayerState.fromJson(Map<String, dynamic> json)
       : duration = json['duration'] < 0
@@ -80,6 +87,8 @@ class PlayerState {
         position = Duration(milliseconds: json['currentPosition']),
         isPlaying = json['isPlaying'],
         currentIndex = json['currentIndex'],
+        repeatMode = RepeatMode.values[json['repeatMode']],
+        shuffleModeEnabled = json['shuffleModeEnabled'],
         audioProcessingState = _convertToAudioProcessingState(json['state']);
 
   PlayerState copyWith(
@@ -88,6 +97,8 @@ class PlayerState {
       Duration? bufferedPosition,
       AudioProcessingState? audioProcessingState,
       int? currentIndex,
+      RepeatMode? repeatMode,
+      bool? shuffleModeEnabled,
       bool? isPlaying}) {
     return PlayerState(
       audioProcessingState: audioProcessingState ?? this.audioProcessingState,
@@ -95,6 +106,8 @@ class PlayerState {
       position: position ?? this.position,
       isPlaying: isPlaying ?? this.isPlaying,
       currentIndex: currentIndex ?? this.currentIndex,
+      repeatMode: repeatMode ?? this.repeatMode,
+      shuffleModeEnabled: shuffleModeEnabled ?? this.shuffleModeEnabled,
     );
   }
 
@@ -106,6 +119,8 @@ class PlayerState {
       'isPlaying': isPlaying,
       'state': audioProcessingState?.name,
       'currentIndex': currentIndex,
+      'repeatMode': repeatMode.index,
+      'shuffleEnabled': shuffleModeEnabled
     };
   }
 
@@ -131,7 +146,9 @@ class PlayerState {
       bufferedPosition.hashCode ^
       isPlaying.hashCode ^
       audioProcessingState.hashCode ^
-      currentIndex.hashCode;
+      currentIndex.hashCode ^
+      repeatMode.hashCode ^
+      shuffleModeEnabled.hashCode;
 
   @override
   bool operator ==(Object other) {

@@ -1,5 +1,3 @@
-package com.anandnet.audio_player_jni
-
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -15,7 +13,7 @@ import java.util.concurrent.FutureTask
 @UnstableApi
 @Keep
 class AudioPlayerJni(context: Context) {
-    private var init : Boolean = true;
+    private var init : Boolean = true
     private val loadControl: LoadControl = DefaultLoadControl.Builder()
         .setBufferDurationsMs(
             30000,
@@ -29,57 +27,39 @@ class AudioPlayerJni(context: Context) {
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun getCurrentState(): Int {
-        val future = FutureTask {
-            exoPlayer.playbackState
-        }
-        mainHandler.post(future)
-        return future.get()
+        return commonGet { exoPlayer.playbackState }
     }
 
     fun getCurrentError(): String? {
-        val future = FutureTask {
-            val error = exoPlayer.playerError ?: return@FutureTask null
-
-            val map: MutableMap<String, Any> = mutableMapOf(
-                "error" to mutableMapOf(
-                    "code" to error.errorCode,
-                    "message" to error.message,
-                    "stackTrace" to error.stackTraceToString()
+        val result = commonGet {
+            val error = exoPlayer.playerError?.let {
+                mutableMapOf(
+                    "error" to mutableMapOf(
+                        "code" to it.errorCode,
+                        "message" to it.message,
+                        "stackTrace" to it.stackTraceToString()
+                    )
                 )
-            )
-
-            return@FutureTask map
+            }
+            error
         }
-        mainHandler.post(future)
-        return Gson().toJson(future.get())
+        return Gson().toJson(result)
     }
 
     fun getCurrentPosition(): Long {
-        val future = FutureTask {
-            exoPlayer.currentPosition
-        }
-        mainHandler.post(future)
-        return future.get()
+        return commonGet { exoPlayer.currentPosition }
     }
 
     fun getDuration(): Long {
-        val future = FutureTask {
-            exoPlayer.duration
-        }
-        mainHandler.post(future)
-        return future.get()
+        return commonGet { exoPlayer.duration }
     }
 
     fun getBufferedPosition(): Long {
-        val future = FutureTask {
-            exoPlayer.bufferedPosition
-        }
-        mainHandler.post(future)
-        return future.get()
+        return commonGet { exoPlayer.bufferedPosition }
     }
 
     fun getAllStates(): String? {
-        val future = FutureTask {
+        val result = commonGet {
             val error = exoPlayer.playerError
             val errorMap = error?.let {
                 mutableMapOf(
@@ -88,7 +68,6 @@ class AudioPlayerJni(context: Context) {
                     "stackTrace" to error.stackTraceToString()
                 )
             }
-
             mutableMapOf(
                 "isPlaying" to exoPlayer.isPlaying,
                 "currentIndex" to exoPlayer.currentMediaItemIndex,
@@ -96,11 +75,12 @@ class AudioPlayerJni(context: Context) {
                 "error" to errorMap,
                 "currentPosition" to exoPlayer.currentPosition,
                 "duration" to exoPlayer.duration,
-                "bufferedPosition" to exoPlayer.bufferedPosition
+                "bufferedPosition" to exoPlayer.bufferedPosition,
+                "shuffleModeEnabled" to exoPlayer.shuffleModeEnabled,
+                "repeatMode" to exoPlayer.repeatMode
             )
         }
-        mainHandler.post(future)
-        return Gson().toJson(future.get())
+        return Gson().toJson(result)
     }
 
     fun setUrl(url: String, autoPlay: Boolean) {
@@ -111,8 +91,9 @@ class AudioPlayerJni(context: Context) {
         }
     }
 
-    fun addMediaItem(mediaItem: MediaItem, index: Int?) {
+    fun addMediaItem(url:String, index: Int?) {
         mainHandler.post {
+            val mediaItem = MediaItem.fromUri(url)
             if (index == null) {
                 exoPlayer.addMediaItem(mediaItem)
             } else {
@@ -120,12 +101,14 @@ class AudioPlayerJni(context: Context) {
             }
             if(init){
                 exoPlayer.prepare()
-                init = false;
+                init = false
             }
         }
     }
 
-    fun addMediaItems(mediaItems: List<MediaItem>, index: Int?) {
+    fun addMediaItems(urls: String, index: Int?) {
+        val mediaItems = Gson().fromJson(urls, Array<String>::class.java)
+            .map { MediaItem.fromUri(it) }
         mainHandler.post {
             if (index == null) {
                 exoPlayer.addMediaItems(mediaItems)
@@ -134,7 +117,7 @@ class AudioPlayerJni(context: Context) {
             }
             if(init){
                 exoPlayer.prepare()
-                init = false;
+                init = false
             }
         }
     }
@@ -166,7 +149,7 @@ class AudioPlayerJni(context: Context) {
     }
 
     fun getPlayList(): String {
-        val futureTask = FutureTask {
+        val result = commonGet {
             val mediaItems = mutableListOf<String>()
             val mediaItemCount = exoPlayer.mediaItemCount
 
@@ -174,10 +157,10 @@ class AudioPlayerJni(context: Context) {
                 exoPlayer.getMediaItemAt(i)
                     .let { mediaItems.add(it.localConfiguration?.uri.toString()) }
             }
-            return@FutureTask mediaItems
+             mediaItems
         }
-        mainHandler.post(futureTask)
-        return Gson().toJson(futureTask.get())
+
+        return Gson().toJson(result)
     }
 
     fun play() {
@@ -194,7 +177,6 @@ class AudioPlayerJni(context: Context) {
             val currentPos = exoPlayer.currentPosition
             exoPlayer.stop()
             if (currentMediaItem != null) {
-                //exoPlayer.setMediaItem(currentMediaItem)
                 exoPlayer.prepare()
                 exoPlayer.seekTo(currentPos)
                 exoPlayer.play()
@@ -252,11 +234,7 @@ class AudioPlayerJni(context: Context) {
     }
 
     fun getRepeatMode(): Int {
-        val futureTask = FutureTask {
-            return@FutureTask exoPlayer.repeatMode
-        }
-        mainHandler.post(futureTask)
-        return futureTask.get()
+        return commonGet { exoPlayer.repeatMode }
     }
 
     fun toggleShuffleMode(enable: Boolean) {
@@ -266,11 +244,7 @@ class AudioPlayerJni(context: Context) {
     }
 
     fun isShuffleModeEnabled(): Boolean {
-        val futureTask = FutureTask {
-            return@FutureTask exoPlayer.shuffleModeEnabled
-        }
-        mainHandler.post(futureTask)
-        return futureTask.get()
+        return commonGet { exoPlayer.shuffleModeEnabled }
     }
 
     fun toggleSkipSilence(enable: Boolean) {
@@ -280,19 +254,11 @@ class AudioPlayerJni(context: Context) {
     }
 
     fun isSkipSilenceEnabled(): Boolean {
-        val futureTask = FutureTask {
-            return@FutureTask exoPlayer.skipSilenceEnabled
-        }
-        mainHandler.post(futureTask)
-        return futureTask.get()
+        return commonGet { exoPlayer.skipSilenceEnabled }
     }
 
     fun getPlayerSessionId(): Int {
-        val futureTask = FutureTask {
-            return@FutureTask exoPlayer.audioSessionId
-        }
-        mainHandler.post(futureTask)
-        return futureTask.get()
+       return commonGet { exoPlayer.audioSessionId }
     }
 
     fun stop() {
@@ -305,5 +271,11 @@ class AudioPlayerJni(context: Context) {
         mainHandler.post {
             exoPlayer.release()
         }
+    }
+
+    private fun <T> commonGet(task: () -> T): T {
+        val futureTask = FutureTask(task)
+        mainHandler.post(futureTask)
+        return futureTask.get()
     }
 }

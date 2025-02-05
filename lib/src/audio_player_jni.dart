@@ -14,6 +14,8 @@ class AudioPlayer extends AudioPlayerBase {
   final StreamController<PlayerError> _errorStreamController =
       StreamController<PlayerError>.broadcast();
   PlayerState _playerState = PlayerState();
+  final StreamController<List<AudioSource>> _queueStreamController =
+      StreamController<List<AudioSource>>.broadcast();
   PlayerError? _playerLastError;
 
   Timer? _timer;
@@ -23,6 +25,10 @@ class AudioPlayer extends AudioPlayerBase {
 
   @override
   Stream<PlayerError> get errorStream => _errorStreamController.stream;
+
+  @override
+  Stream<List<AudioSource>> get queueStream => _queueStreamController.stream;
+
   @override
   bool get isPlaying => _playerState.isPlaying;
   @override
@@ -36,8 +42,7 @@ class AudioPlayer extends AudioPlayerBase {
   @override
   Duration get position => _playerState.position;
   @override
-  Duration get bufferedPosition =>
-      _playerState.bufferedPosition;
+  Duration get bufferedPosition => _playerState.bufferedPosition;
   @override
   PlayerState get playerState => _playerState;
   @override
@@ -66,7 +71,7 @@ class AudioPlayer extends AudioPlayerBase {
   int? get audioSessionId => _audioPlayer?.getPlayerSessionId();
 
   @override
-  set skipSilenceEnabled(bool value) {
+  set skipSilenceModeEnabled(bool value) {
     _audioPlayer?.toggleSkipSilence(value);
   }
 
@@ -149,6 +154,7 @@ class AudioPlayer extends AudioPlayerBase {
     final jurl = JString.fromString(source.url);
     _audioPlayer?.setUrl(jurl, autoPlay);
     jurl.release();
+    _queueStreamController.add(audioSources);
   }
 
   @override
@@ -157,12 +163,11 @@ class AudioPlayer extends AudioPlayerBase {
       _init();
     }
     final jurl = JString.fromString(source.url);
-    final jmediaItem = MediaItem.fromUri(jurl);
     final jindex = index == null ? null : JInteger(index);
-    _audioPlayer?.addMediaItem(jmediaItem!, jindex);
+    _audioPlayer?.addMediaItem(jurl, jindex);
     jurl.release();
     jindex?.release();
-    jmediaItem?.release();
+    _queueStreamController.add(audioSources);
   }
 
   @override
@@ -172,30 +177,38 @@ class AudioPlayer extends AudioPlayerBase {
       _init();
     }
     final jindex = index == null ? null : JInteger(index);
-    final jSources = sources.map((e) {
-      final jurl = JString.fromString(e.url);
-      final mediaItem = MediaItem.fromUri(jurl);
-      jurl.release();
-      return mediaItem!;
-    }).toJList(const $MediaItem$Type());
+    final sourcesJson = jsonEncode(sources.map((e) {
+      return e.url;
+    }).toList());
+    final jSources = JString.fromString(sourcesJson);
     _audioPlayer?.addMediaItems(jSources, jindex);
     jindex?.release();
     jSources.release();
+    _queueStreamController.add(audioSources);
   }
 
   @override
   void removeAudioSource(int index) {
     _audioPlayer?.removeMediaItem(index);
+    _queueStreamController.add(audioSources);
+  }
+
+  @override
+  void moveAudioSource(int currentIndex, int newIndex) {
+    _audioPlayer?.moveMediaItem(currentIndex, newIndex);
+    _queueStreamController.add(audioSources);
   }
 
   @override
   void removeAudioSourcewithIndexRange(int from, int to) {
     _audioPlayer?.removeMediaItemRange(from, to);
+    _queueStreamController.add(audioSources);
   }
 
   @override
   void clearAllAudioSources() {
     _audioPlayer?.removeAllMediaItems();
+    _queueStreamController.add(audioSources);
   }
 
   @override
@@ -261,6 +274,7 @@ class AudioPlayer extends AudioPlayerBase {
     _timer?.cancel();
     _stateStreamController.close();
     _errorStreamController.close();
+    _queueStreamController.close();
     _audioPlayer?.release();
   }
 }

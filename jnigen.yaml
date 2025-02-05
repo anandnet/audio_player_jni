@@ -1,5 +1,6 @@
 android_sdk_config:
   add_gradle_deps: true
+  android_example: 'example/'
 
 output:
   dart:
@@ -7,9 +8,8 @@ output:
     structure: single_file
 
 source_path:
-  - 'android/app/src/main/kotlin'
+  - 'android/src/main/kotlin'
 classes:
-  - 'androidx.media3.common.MediaItem'
-  - 'com.anandnet.audio_player_jni.AudioPlayerJni'
+  - 'AudioPlayerJni'
 
   

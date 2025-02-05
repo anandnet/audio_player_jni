@@ -14,7 +14,7 @@ buildscript {
 
     dependencies {
         // The Android Gradle Plugin knows how to build native code with the NDK.
-        classpath("com.android.tools.build:gradle:8.1.0")
+        classpath("com.android.tools.build:gradle:8.1.4")
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
     }
 }
@@ -43,10 +43,16 @@ android {
 
     defaultConfig {
         minSdk = 21
+        consumerProguardFile("consumer-rules.pro")
     }
     kotlinOptions {
         jvmTarget = '11'
     }
+    
+    sourceSets {
+        main.java.srcDirs += 'src/main/kotlin'
+    }
+
 }
 
 dependencies {

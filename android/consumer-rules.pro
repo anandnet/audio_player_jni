@@ -1,2 +1,1 @@
--keep class com.anandnet.audio_player_jni.*
--keep class androidx.media3.common.MediaItem { public *; }
+-keep class AudioPlayerJni { *; }
